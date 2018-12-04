@@ -3,7 +3,7 @@
 import datetime, hashlib, os, re, shutil, subprocess, sys, glob, argparse
 
 COMPONENTS = []
-supported_arches = ['all', 'arm', 'i686', 'i386', 'aarch64', 'x86_64', 'amd64']
+supported_arches = ['i386', 'amd64']
 encountered_arches = set()
 hashes = ['md5', 'sha1', 'sha256', 'sha512']
 
@@ -49,25 +49,33 @@ def add_deb(deb_to_add_path, component, use_hard_links):
     deb_to_add_pkg_version = re.search('Version: (.*)', deb_to_add_control_file).group(1)
     deb_arch = re.search('Architecture: (.*)', deb_to_add_control_file).group(1)
 
-    if not deb_arch in supported_arches:
-        sys.exit('Unsupported arch "' + deb_arch + '" in ' + os.path.basename(deb_to_add_path))
-    encountered_arches.add(deb_arch)
+    if deb_arch != "all":
+        if not deb_arch in supported_arches:
+            sys.exit('Unsupported arch "' + deb_arch + '" in ' + os.path.basename(deb_to_add_path))
+        encountered_arches.add(deb_arch)
 
     package_name = get_package_name(os.path.basename(deb_to_add_path))
-    arch_dir_path = os.path.join(distribution_path, component, 'binary-' + deb_arch)
 
-    if not os.path.isdir(arch_dir_path):
-        os.makedirs(arch_dir_path)
-
-    # Add .deb file:
-    print('Adding deb file: ' + os.path.basename(deb_to_add_path) + '...')
-    dest_deb_dir_path = os.path.join(distribution_path, component, 'binary-' + deb_arch)
-    if not os.path.isdir(dest_deb_dir_path): os.makedirs(dest_deb_dir_path)
-    destination_deb_file = os.path.join(dest_deb_dir_path, os.path.basename(deb_to_add_path))
-    if not use_hard_links:
-        shutil.copy2(deb_to_add_path, destination_deb_file)
+    if deb_arch == "all":
+        archs = supported_arches
     else:
-        os.link(deb_to_add_path, destination_deb_file)
+        archs = [deb_arch]
+
+    for arch in archs:
+        arch_dir_path = os.path.join(distribution_path, component, 'binary-' + arch)
+
+        if not os.path.isdir(arch_dir_path):
+            os.makedirs(arch_dir_path)
+
+        # Add .deb file:
+        print('Adding deb file: ' + os.path.basename(deb_to_add_path) + '...')
+        dest_deb_dir_path = os.path.join(distribution_path, component, 'binary-' + arch)
+        if not os.path.isdir(dest_deb_dir_path): os.makedirs(dest_deb_dir_path)
+        destination_deb_file = os.path.join(dest_deb_dir_path, os.path.basename(deb_to_add_path))
+        if not use_hard_links:
+            shutil.copy2(deb_to_add_path, destination_deb_file)
+        else:
+            os.link(deb_to_add_path, destination_deb_file)
 
 parser = argparse.ArgumentParser(description='Create a repository with deb files')
 parser.add_argument('input', metavar='input', type=str,
